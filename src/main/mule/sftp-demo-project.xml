@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config"
+		doc:id="7ae4c628-585f-45ac-aa23-74cc9792966c">
+		<sftp:connection workingDir="/sftp_files"
+			host="localhost" username="anil_user" password="Adapala56031-!@#" />
+	</sftp:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="e2e7e55a-6c66-4b75-9a47-d102443e89c5" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="sftp-demo-new-file" doc:id="66b43358-f874-4963-ab4c-1b512a626101" initialState="started">
+		<sftp:listener doc:name="On New or Updated File" doc:id="97270afd-1458-4619-ab97-b868b19b0e67" config-ref="SFTP_Config" directory="mule" moveToDirectory="archive" renameTo='#[(attributes.fileName splitBy ".")[0] ++ "-" ++ (now() as String {format: "yyyy-MM-dd-HH-mm-ss"}) ++ "." ++ (attributes.fileName splitBy ".")[1]]'>
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</sftp:listener>
+		<set-variable value="#[attributes.fileName]" doc:name="Set fileName" doc:id="9fe12ecb-64fb-4f4d-af79-769a26c72153" variableName="fileName" />
+		<logger level="INFO" doc:name="Logger" doc:id="4d35f368-d189-4f36-8433-bf72fa8c9335" message='#["The file has been pickedup from source location" ++ vars.fileName as String]'/>
+		<sftp:move doc:name="Move file from /mule to /archive SFTP location" doc:id="8f9faead-ea45-4b3c-8748-e870a3e26baa" config-ref="SFTP_Config" sourcePath="mule/airport.json" targetPath="archive" renameTo='#[(vars.fileName splitBy ".")[0] ++ "-" ++ (now() as String {format: "yyyy-MM-dd-HH-mm-ss"}) ++ "." ++ (vars.fileName splitBy ".")[1]]' overwrite="true" />
+		<logger level="INFO" doc:name="Logger" doc:id="8187d02c-e6af-4191-a256-045205fce1bd" message='#["The file ahs been moved to location" ++ ":" ++ "archive"]' />
+	</flow>
+	<flow name="sftp-demo-read-file" doc:id="4fd1578d-63b4-4a5e-818b-46b239efe5d1" >
+		<http:listener doc:name="Listener" doc:id="680a9ae5-bc5d-4c34-9b77-5ab3cf1a89a7" config-ref="HTTP_Listener_config" path="/read"/>
+		<sftp:read doc:name="Read from source location in SFTP" doc:id="0b1e0e20-cddb-4921-a747-1ca08d17a788" config-ref="SFTP_Config" path="mule/airport.json"/>
+		<logger level="INFO" doc:name="Printing Paylaod on Console" doc:id="047d2c8f-3a09-420c-9b7d-0a9604d0584b" message='The file has been read: #[payload]'/>
+	</flow>
+	<flow name="sftp-demo-write-flow" doc:id="1314076c-9033-425b-a6fc-bca2b5dd7a17" >
+		<http:listener doc:name="Listener" doc:id="c58cdf8d-c52a-403b-a9f3-c70c426bbc5b" config-ref="HTTP_Listener_config" path="/write" />
+		<sftp:write doc:name="Write" doc:id="5d3f47f0-4e64-40ca-85af-de3e25acdf28" config-ref="SFTP_Config" path='#["archive/airport-" ++ (now() as String {format: "yyyy-MM-dd-HH-mm-ss"}) ++ ".json"]'/>
+		<logger level="INFO" doc:name="Printing Paylaod on Console" doc:id="369cbb2d-e7d9-460a-b6a9-1ad4c1ed7699" message="The file has been written on location" />
+	</flow>
+</mule>
